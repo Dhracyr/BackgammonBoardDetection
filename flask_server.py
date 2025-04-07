@@ -1,10 +1,9 @@
-import json
 import os
 from dotenv import load_dotenv
 import base64
 import cv2
 import numpy as np
-from flask import Flask, request, Response, render_template_string
+from flask import Flask, request, render_template_string
 from inference import get_model
 import supervision as sv
 
@@ -40,55 +39,67 @@ def index():
 
 @app.route('/analyze', methods=['POST'])
 def analyze():
-    if 'image' not in request.files:
-        return "No image provided", 400
+    print(">>> /analyze endpoint reached")
+    try:
+        print("Received request at /analyze")
+        if 'image' not in request.files:
+            print("No image in request.files")
+            return "No image provided", 400
 
-    # Read the image file from the request.
-    print("I am analysing!")
-    file = request.files['image']
-    file_bytes = np.frombuffer(file.read(), np.uint8)
-    image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
-    print("Image shape:", image.shape)
-    # run inference on our chosen image, image can be a url, a numpy array, a PIL image, etc.
-    results = model.infer(image)[0]
+        # Read the image file from the request.
+        print("I am analysing!")
+        file = request.files['image']
+        file_bytes = np.frombuffer(file.read(), np.uint8)
+        image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+        if image is None:
+            raise ValueError("Image decoding failed. The file may not be a valid image.")
 
-    # load the results into the supervision Detections api
-    detections = sv.Detections.from_inference(results)
+        print("Image shape:", image.shape)
 
-    # create supervision annotators
-    bounding_box_annotator = sv.BoxAnnotator()
-    label_annotator = sv.LabelAnnotator()
+        # run inference on our chosen image, image can be a url, a numpy array, a PIL image, etc.
+        results = model.infer(image)[0]
+        print("Inference results:", results)
 
-    # annotate the image with our inference result
-    annotated_image = bounding_box_annotator.annotate(scene=image, detections=detections)
-    annotated_image = label_annotator.annotate(scene=annotated_image, detections=detections)
+        # load the results into the supervision Detections api
+        detections = sv.Detections.from_inference(results)
 
-    # Encode the annotated image to JPEG, then to base64 so it can be embedded in HTML.
-    retval, buffer = cv2.imencode('.jpg', annotated_image)
-    annotated_image_b64 = base64.b64encode(buffer).decode('utf-8')
-    sv.plot_image(annotated_image)
-    print(annotated_image_b64)
-    cv2.imwrite("debug_uploaded_image.jpg", image)
+        # create supervision annotators
+        bounding_box_annotator = sv.BoxAnnotator()
+        label_annotator = sv.LabelAnnotator()
 
-    # Create an HTML page that shows the annotated image and the detection information.
-    result_html = f'''
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Analysis Results</title>
-    </head>
-    <body>
-        <h1>Analysis Results</h1>
-        <h2>Annotated Image</h2>
-        <img src="data:image/jpeg;base64,{annotated_image_b64}" alt="Annotated Image" style="max-width: 100%; height: auto;"/>
-        <h2>Detections</h2>
-        <pre>{detections}</pre>
-        <br>
-        <a href="/">Upload another image</a>
-    </body>
-    </html>
-    '''
-    return result_html
+        # annotate the image with our inference result
+        annotated_image = bounding_box_annotator.annotate(scene=image, detections=detections)
+        annotated_image = label_annotator.annotate(scene=annotated_image, detections=detections)
+
+        # Encode the annotated image to JPEG, then to base64 so it can be embedded in HTML.
+        retval, buffer = cv2.imencode('.jpg', annotated_image)
+        annotated_image_b64 = base64.b64encode(buffer).decode('utf-8')
+        sv.plot_image(annotated_image)
+        print(annotated_image_b64)
+        cv2.imwrite("debug_uploaded_image.jpg", image)
+
+        # Create an HTML page that shows the annotated image and the detection information.
+        result_html = f'''
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Analysis Results</title>
+        </head>
+        <body>
+            <h1>Analysis Results</h1>
+            <h2>Annotated Image</h2>
+            <img src="data:image/jpeg;base64,{annotated_image_b64}" alt="Annotated Image" style="max-width: 100%; height: auto;"/>
+            <h2>Detections</h2>
+            <pre>{detections}</pre>
+            <br>
+            <a href="/">Upload another image</a>
+        </body>
+        </html>
+        '''
+        return result_html
+    except Exception as e:
+        print("Error occurred:", e)
+        return f"Error occurred: {e}", 500
 
 
 if __name__ == '__main__':

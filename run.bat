@@ -1,0 +1,1 @@
+python yolov7/train.py --data G:\Schule\Studium\BeginningOfAll\GitHubRepos\BackgammonBoardDetection\data\dataset_combined\data.yaml --cfg cfg/training/yolov7.yaml --weights 'yolov7.pt' --epochs 50 --img 640 --batch 16
