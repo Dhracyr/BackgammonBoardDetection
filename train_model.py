@@ -1,8 +1,7 @@
 """
-python -m venv yolovenv
-source yolovenv\Scripts\activate
-git clone https://github.com/WongKinYiu/yolov7.git
-cd yolov7
-pip install -r requirements.txt
+
+cd .\yolovenv
+.\Scripts\activate.ps1
+python -c "import torch; print(torch.cuda.is_available())"
 
 """
